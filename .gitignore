@@ -1,0 +1,10 @@
+# Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+deps/deps.jl
+docs/build/
+
+# scratch / editor
+.DS_Store
+*.swp

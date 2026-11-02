@@ -1,0 +1,22 @@
+name = "MeSCoT"
+uuid = "ef2b02ed-fc9c-4252-bf8f-c3221282e98a"
+version = "0.1.0"
+authors = ["MeSCoT.jl contributors"]
+
+[deps]
+MatlabRuntime_jll = "5c36b28e-dfcf-4811-ae13-b40b84046936"
+Scratch = "6c6a2e73-6563-6170-7368-637461726353"
+
+[sources]
+MatlabRuntime_jll = {rev = "main", url = "https://github.com/BgroveP/MatlabRuntime.jl"}
+
+[compat]
+MatlabRuntime_jll = "0.1.0"
+Scratch = "1"
+julia = "1.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
