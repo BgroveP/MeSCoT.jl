@@ -31,11 +31,12 @@ Pkg.add(url = "<this repository>")                            # MeSCoT.jl
 ## The MATLAB Runtime requirement
 
 The MeSCoT executable is locked to the exact runtime version it was compiled
-with: **MATLAB Runtime R2017a, version 9.2, folder `v92`**. MathWorks no
-longer distributes runtimes that old (installer downloads stop at R2019a, the
-container registry at R2021b), so it cannot be fetched automatically.
+with: **MATLAB Runtime R2017a, version 9.2, folder `v92`**. MathWorks still
+serves the legacy R2017a installer, so on first use the wrapper installs it
+automatically through `MatlabRuntime_jll` (~1.3 GB download, several GB on
+disk; one UAC prompt on Windows). Call `install_runtime()` to do this up front.
 
-Point the wrapper at an existing R2017a runtime installation, in this order:
+An existing R2017a runtime is used instead when found, in this order:
 
 1. `runtime_root(root = "...")` argument,
 2. environment variable `MESCOT_RUNTIME_ROOT`,
@@ -43,7 +44,7 @@ Point the wrapper at an existing R2017a runtime installation, in this order:
    (`/usr/local/MATLAB/MATLAB_Runtime`, `/opt/...` on Linux,
    `%ProgramFiles%\MATLAB\MATLAB Runtime` on Windows) — accepted only if the
    tree actually contains `v92`,
-4. a `MatlabRuntime_jll`-managed installation, if you placed one there.
+4. a previous `MatlabRuntime_jll`-managed installation.
 
 The root is the directory *containing* the `v92` folder (passing the `v92`
 folder itself also works and is normalized).
@@ -108,7 +109,8 @@ read_network("N_snpID.gntw")        # GeneNetwork(from, to, weight)
 | `uninstall_app()` | Remove the MeSCoT application and archive. |
 | `is_app_installed()`, `app_dir()`, `app_exe()` | Application state and locations. |
 | `example_dir(name)` | Bundled demonstration examples (`"GxG"`, `"GxE"`). |
-| `runtime_root(; root, release)` | Resolve the MATLAB Runtime root (`v92` parent); see above. |
+| `runtime_root(; root, release, autoinstall)` | Resolve the MATLAB Runtime root (`v92` parent), installing it if missing; see above. |
+| `install_runtime(; force)` | Download and install the MATLAB Runtime R2017a via `MatlabRuntime_jll`. |
 | `runtime_version_dir(; root)` | The runtime version directory (`.../v92`), as the official launchers' `<mcr_directory>`. |
 | `MeSCoTConfig(; kwargs...)`, `write_tsim`, `parse_tsim` | Simulation configuration (`*.tsim`). |
 | `ModelParameters(; kwargs...)`, `write_grm` | Model parameters (`*.grm`). |
@@ -126,7 +128,7 @@ MESCOT_TEST_RUN=1     julia --project=. -e 'using Pkg; Pkg.test()'   # + end-to-
 ```
 
 The end-to-end test is skipped unless a MATLAB Runtime R2017a (`v92`) is
-reachable via the resolution order above.
+already installed (run `install_runtime()` first); the test does not install it.
 
 ## References
 

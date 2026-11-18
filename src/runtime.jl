@@ -19,7 +19,8 @@ function _normalize_root(root; release)
 end
 
 """
-    runtime_root(; root = nothing, release = MESCOT_RUNTIME_RELEASE) -> String
+    runtime_root(; root = nothing, release = MESCOT_RUNTIME_RELEASE,
+                 autoinstall = true) -> String
 
 Root directory of the MATLAB Runtime installation that MeSCoT runs against
 (the directory containing the `v92` runtime folder for R2017a).
@@ -31,16 +32,15 @@ Resolution order:
 3. an existing installation found by `MatlabRuntime_jll.find_system_runtime`
    (this also honours `MATLABRUNTIME_JLL_ROOT` / `MCR_ROOT`), accepting only
    a tree that actually contains the requested release's runtime,
-4. a package-managed `MatlabRuntime_jll` installation.
+4. a package-managed `MatlabRuntime_jll` installation,
+5. if `autoinstall` is true, a fresh package-managed installation via
+   [`install_runtime`](@ref) (downloads the ~1.3 GB MathWorks installer once).
 
 MeSCoT is compiled with MATLAB R2017a, so it needs runtime version 9.2
-(folder `v92`). MathWorks no longer distributes runtimes that old, so they
-cannot be downloaded automatically: point MeSCoT at an existing installation
-via `root`, `MESCOT_RUNTIME_ROOT` or `MATLABRUNTIME_JLL_ROOT`, or install it
-under a standard location (`/usr/local/MATLAB/MATLAB_Runtime` on Linux,
-`%ProgramFiles%\\MATLAB\\MATLAB Runtime` on Windows).
+(folder `v92`).
 """
-function runtime_root(; root = nothing, release = MESCOT_RUNTIME_RELEASE)
+function runtime_root(; root = nothing, release = MESCOT_RUNTIME_RELEASE,
+                      autoinstall = true)
     release = string(release)
     root === nothing || return _normalize_root(string(root); release)
     env = get(ENV, "MESCOT_RUNTIME_ROOT", "")
@@ -51,15 +51,30 @@ function runtime_root(; root = nothing, release = MESCOT_RUNTIME_RELEASE)
         return MatlabRuntime_jll.mcr_root(; release = release, update = "0",
                                            autoinstall = false)
     end
-    error("MeSCoT needs the MATLAB Runtime for MATLAB $(release) " *
-          "(version $(MatlabRuntime_jll.release_version(release)), folder " *
-          "\"$(MatlabRuntime_jll.version_dir(release))\"), and MathWorks no longer " *
-          "distributes it. Set MESCOT_RUNTIME_ROOT (or MATLABRUNTIME_JLL_ROOT) to " *
-          "the runtime root directory - the folder that contains " *
-          "\"$(MatlabRuntime_jll.version_dir(release))\" - or install the " *
-          "MATLAB Runtime $(release) to a standard location " *
-          "(/usr/local/MATLAB/MATLAB_Runtime on Linux, " *
-          "%ProgramFiles%\\MATLAB\\MATLAB Runtime on Windows).")
+    autoinstall && return install_runtime(; release = release)
+    error("No MATLAB Runtime $(release) (version " *
+          "$(MatlabRuntime_jll.release_version(release)), folder " *
+          "\"$(MatlabRuntime_jll.version_dir(release))\") was found. Run " *
+          "`install_runtime()` to download and install it, or set " *
+          "MESCOT_RUNTIME_ROOT (or MATLABRUNTIME_JLL_ROOT) to an existing runtime " *
+          "root directory - the folder that contains " *
+          "\"$(MatlabRuntime_jll.version_dir(release))\".")
+end
+
+"""
+    install_runtime(; release = MESCOT_RUNTIME_RELEASE, force = false) -> String
+
+Download and install the MATLAB Runtime MeSCoT needs (R2017a, `v92`) into the
+`MatlabRuntime_jll` scratch space, using the MathWorks installer (~1.3 GB
+download, several GB on disk). Returns the runtime root. On Windows the
+installer asks for administrator rights (one UAC prompt).
+"""
+function install_runtime(; release = MESCOT_RUNTIME_RELEASE, force = false)
+    release = string(release)
+    @info "Installing the MATLAB Runtime $(release) required by MeSCoT " *
+          "(one-time download of ~1.3 GB; this takes several minutes)"
+    return MatlabRuntime_jll.install(; release = release, update = "0",
+                                      force = force)
 end
 
 """

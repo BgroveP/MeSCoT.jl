@@ -7,7 +7,7 @@ export
     # Application (download / install)
     install_app, uninstall_app, is_app_installed, app_dir, app_exe, example_dir,
     # MATLAB Runtime resolution
-    runtime_root, runtime_version_dir,
+    runtime_root, runtime_version_dir, install_runtime,
     # Simulation set-up
     MeSCoTConfig, ModelParameters, write_tsim, write_grm, parse_tsim,
     # Input data files

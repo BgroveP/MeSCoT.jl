@@ -194,14 +194,14 @@ end
 
     _flag("MESCOT_TEST_RUN") && @testset "end-to-end GxG example (runtime)" begin
         runtime_available = try
-            runtime_root()
+            runtime_root(; autoinstall = false)
             true
         catch
             false
         end
         if !runtime_available
             @info "Skipping end-to-end test: no MATLAB Runtime R2017a (v92) found; " *
-                  "set MESCOT_RUNTIME_ROOT or MATLABRUNTIME_JLL_ROOT."
+                  "run install_runtime() or set MESCOT_RUNTIME_ROOT."
             @test_skip false
         else
             ex = example_dir("GxG")
