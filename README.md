@@ -75,6 +75,17 @@ products = read_products(result)         # GeneData: core gene products
 times  = read_time(result)          # time points of the dynamic solution
 ```
 
+Input paths in `MeSCoTConfig` (`snp`, `core`, …) are relative to the current
+Julia working directory, as usual in Julia: above, `data/rand_allele.dat` is
+read from `./data/rand_allele.dat` wherever `dir` is. They are written to the
+generated `config.tsim` as absolute paths. Outputs (`model.grm`,
+`config.tsim`, the `outres` folder) go into `dir`. Missing input files are
+reported before MeSCoT is started.
+
+When running an existing `*.tsim` file with `run_mescot("study.tsim"; dir)`,
+relative paths inside that file are resolved against `dir`, as MeSCoT itself
+does.
+
 With full output, MeSCoT writes the results under the `\$OUTRES` folder:
 `traits.txt`, `products_<range>.txt`, the saved network geometry
 (`N/A/R_snpID.gntw`), the reference genotype results (`ref_trait.txt`,

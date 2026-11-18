@@ -45,6 +45,27 @@ end
 
 result_dir(r::MeSCoTResult) = r.outdir
 
+"""Input-file keywords of a `*.tsim` configuration (optional ones may be empty)."""
+const _INPUT_KEYWORDS = ("SNP", "CORE", "MODELPAR", "NSAVED", "ASAVED", "RSAVED")
+
+"""Fail early, with a clear message, when an input file named in the
+configuration does not exist. Relative paths are resolved against `dir`, the
+directory MeSCoT runs in."""
+function _check_input_files(parsed, dir)
+    missing_files = String[]
+    for key in _INPUT_KEYWORDS
+        f = strip(get(parsed, key, ""))
+        isempty(f) && continue
+        path = isabspath(f) ? f : normpath(joinpath(dir, f))
+        isfile(path) || push!(missing_files, "\$$(key) = \"$(f)\" -> $(path)")
+    end
+    isempty(missing_files) && return nothing
+    error("MeSCoT input file(s) not found:\n  " * join(missing_files, "\n  ") *
+          "\nPaths given to MeSCoTConfig are resolved against the Julia working " *
+          "directory ($(pwd())); relative paths inside a .tsim file passed to " *
+          "run_mescot are resolved against the simulation directory `dir` ($(dir)).")
+end
+
 """
     run_mescot(config::AbstractString; dir = pwd(), root = nothing,
                release = MESCOT_RUNTIME_RELEASE) -> MeSCoTResult
@@ -67,9 +88,10 @@ function run_mescot(config::AbstractString; dir = pwd(), root = nothing,
     isfile(cfgfile) || error("MeSCoT configuration file not found: $(cfgfile)")
     dir = normpath(abspath(expanduser(dir)))
     mkpath(dir)
+    parsed = parse_tsim(cfgfile)
+    _check_input_files(parsed, dir)
     exe = app_exe()
     rtroot = runtime_root(; root = root, release = release)
-    parsed = parse_tsim(cfgfile)
     cmd = setenv(`$(exe) $(cfgfile)`, _launch_env(exe, rtroot))
     @info "Running MeSCoT" config = cfgfile dir root = rtroot
     cd(dir) do
@@ -86,20 +108,45 @@ function run_mescot(config::AbstractString; dir = pwd(), root = nothing,
     return MeSCoTResult(dir, outdir, cfgfile)
 end
 
+"""Absolute form of an input path given relative to `base` (empty stays empty)."""
+_abs_input(f, base) = isempty(f) ? f : normpath(joinpath(base, expanduser(f)))
+
+"""Copy of `c` whose input file paths are absolute, resolved against `base`
+(the Julia working directory). `\$MODELPAR` is resolved too unless
+`modelpar = false` (when `simulate` writes it into the run directory)."""
+function _resolve_inputs(c::MeSCoTConfig; base = pwd(), modelpar = true)
+    return MeSCoTConfig(c;
+        snp = _abs_input(c.snp, base),
+        core = _abs_input(c.core, base),
+        modelpar = modelpar ? _abs_input(c.modelpar, base) : c.modelpar,
+        nsaved = _abs_input(c.nsaved, base),
+        asaved = _abs_input(c.asaved, base),
+        rsaved = _abs_input(c.rsaved, base))
+end
+
+"""Write `c` (paths already resolved) to `config.tsim` in `dir` and run it."""
+function _run_config(c::MeSCoTConfig, dir; kwargs...)
+    mkpath(dir)
+    f = joinpath(dir, "config.tsim")
+    write_tsim(c, f)
+    return run_mescot(f; dir = dir, kwargs...)
+end
+
 """
     run_mescot(config::MeSCoTConfig; dir = pwd(), kwargs...) -> MeSCoTResult
 
-Write `config` to `config.tsim` in `dir` (the referenced `\$MODELPAR` file
-must already exist there) and run MeSCoT.
+Write `config` to `config.tsim` in `dir` and run MeSCoT there.
+
+Input file paths in `config` (`snp`, `core`, `modelpar`, `nsaved`, `asaved`,
+`rsaved`) are resolved relative to the current Julia working directory
+(`pwd()`), not `dir`; they are written to the configuration file as absolute
+paths. The `outres` results folder is created inside `dir`.
 """
 function run_mescot(c::MeSCoTConfig; dir = pwd(), kwargs...)
     err = _validate_config(c)
     err === nothing || error("Invalid MeSCoT configuration: " * err)
     dir = normpath(abspath(expanduser(dir)))
-    mkpath(dir)
-    f = joinpath(dir, "config.tsim")
-    write_tsim(c, f)
-    return run_mescot(f; dir = dir, kwargs...)
+    return _run_config(_resolve_inputs(c), dir; kwargs...)
 end
 
 """
@@ -110,6 +157,10 @@ end
 High-level entry point: write the model parameters file (`model.grm` unless
 `config.modelpar` says otherwise) and the configuration file into `dir`,
 run MeSCoT, and return a [`MeSCoTResult`](@ref).
+
+Input data paths in `config` (`snp`, `core`, `nsaved`, `asaved`, `rsaved`)
+are resolved relative to the current Julia working directory (`pwd()`), so
+`dir` can be anywhere. `modelpar` and `outres` are locations inside `dir`.
 
 Example:
 
@@ -132,10 +183,9 @@ function simulate(c::MeSCoTConfig, m::ModelParameters = ModelParameters();
     err === nothing || error("Invalid MeSCoT configuration: " * err)
     dir = normpath(abspath(expanduser(dir)))
     modelpar = isempty(c.modelpar) ? "model.grm" : c.modelpar
-    c = _with_modelpar(c, modelpar)
+    c = _resolve_inputs(_with_modelpar(c, modelpar); modelpar = false)
     mpfile = normpath(joinpath(dir, modelpar))
     mkpath(dirname(mpfile))
     write_grm(m, mpfile)
-    return run_mescot(c; dir = dir, root = root, release = release)
+    return _run_config(c, dir; root = root, release = release)
 end
-

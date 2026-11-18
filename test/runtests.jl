@@ -151,6 +151,50 @@ end
         @test runtime_root(; root = "/some/root") == normpath("/some/root")
     end
 
+    @testset "input files are checked before running" begin
+        mktempdir() do d
+            cfg = MeSCoTConfig(snp = "data/snp.dat", core = "data/core.dat",
+                               modelpar = "model.grm")
+            f = write_tsim(cfg, joinpath(d, "study.tsim"))
+            p = parse_tsim(f)
+            err = try
+                MeSCoT._check_input_files(p, d); nothing
+            catch e
+                e
+            end
+            @test err isa ErrorException
+            @test occursin("\$SNP = \"data/snp.dat\"", err.msg)
+            @test occursin("\$MODELPAR", err.msg)
+            @test !occursin("\$NSAVED", err.msg)   # empty optional files are skipped
+            mkpath(joinpath(d, "data"))
+            for x in ("data/snp.dat", "data/core.dat", "model.grm")
+                touch(joinpath(d, x))
+            end
+            @test MeSCoT._check_input_files(p, d) === nothing
+            # absolute paths are used as-is, independent of dir
+            pabs = Dict("SNP" => joinpath(d, "data", "snp.dat"))
+            @test MeSCoT._check_input_files(pabs, mktempdir()) === nothing
+        end
+    end
+
+    @testset "config input paths resolve against pwd" begin
+        mktempdir() do d
+            cfg = MeSCoTConfig(snp = "data/snp.dat", core = "data/core.dat",
+                               nsaved = "", outres = "out")
+            r = cd(() -> MeSCoT._resolve_inputs(cfg), d)
+            @test r.snp == normpath(joinpath(d, "data", "snp.dat"))
+            @test r.core == normpath(joinpath(d, "data", "core.dat"))
+            @test r.modelpar == normpath(joinpath(d, "model.grm"))
+            @test r.nsaved == ""          # empty optional paths stay empty
+            @test r.outres == "out"       # outputs stay relative to dir
+            r2 = cd(() -> MeSCoT._resolve_inputs(cfg; modelpar = false), d)
+            @test r2.modelpar == "model.grm"
+            # absolute paths are kept
+            a = joinpath(d, "x.dat")
+            @test MeSCoT._resolve_inputs(MeSCoTConfig(cfg; snp = a)).snp == normpath(a)
+        end
+    end
+
     @testset "app lookup before install" begin
         # a missing app directory must not throw, so app_exe() can trigger the download
         mktempdir() do d
