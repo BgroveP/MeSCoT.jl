@@ -148,7 +148,21 @@ end
             @test MeSCoT.runtime_version_dir(; root = d) == fake
         end
         # explicit root wins over everything
-        @test runtime_root(; root = "/some/root") == "/some/root"
+        @test runtime_root(; root = "/some/root") == normpath("/some/root")
+    end
+
+    @testset "app lookup before install" begin
+        # a missing app directory must not throw, so app_exe() can trigger the download
+        mktempdir() do d
+            missing_root = joinpath(d, "app")
+            @test MeSCoT._find_app_exe(missing_root; quiet = true) === nothing
+            @test_throws ErrorException MeSCoT._find_app_exe(missing_root)
+            mkpath(joinpath(missing_root, "mescot_lin"))
+            @test MeSCoT._find_app_exe(missing_root; quiet = true) === nothing
+            exe = joinpath(missing_root, "mescot_lin", Sys.iswindows() ? "mescot.exe" : "mescot")
+            touch(exe)
+            @test MeSCoT._find_app_exe(missing_root) == exe
+        end
     end
 
     _flag("MESCOT_TEST_INSTALL") && @testset "app install (network)" begin

@@ -9,6 +9,10 @@ _archive() = joinpath(_scratch(), basename(MESCOT_URL))
 """Locate the `mescot(.exe)` executable under `root` (the downloaded archive
 extracts it into a platform subfolder, e.g. `mescot_lin/`)."""
 function _find_app_exe(root; quiet = false)
+    if !isdir(root)
+        quiet && return nothing
+        error("MeSCoT application directory does not exist: $(root)")
+    end
     for (d, dirs, files) in walkdir(root)
         for f in files
             lowercase(f) in ("mescot.exe", "mescot") && return joinpath(d, f)
